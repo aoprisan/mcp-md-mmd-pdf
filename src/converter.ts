@@ -1,5 +1,5 @@
 import { readFile } from 'fs/promises';
-import { marked } from 'marked';
+import { marked, Renderer } from 'marked';
 import puppeteer from 'puppeteer';
 import path from 'path';
 import type { ConversionOptions, ConversionResult, MermaidConversionOptions, MermaidConversionResult } from './types.js';
@@ -87,6 +87,22 @@ export async function convertMarkdownToPDF(
   try {
     // Read the markdown file
     const markdownContent = await readFile(options.inputPath, 'utf-8');
+
+    // Configure marked with custom renderer for Mermaid diagrams
+    const renderer = new Renderer();
+
+    renderer.code = ({ text, lang, escaped }) => {
+      // If this is a mermaid code block, convert it to a div with class "mermaid"
+      if (lang === 'mermaid') {
+        return `<div class="mermaid">\n${text}\n</div>\n`;
+      }
+      // For all other code blocks, use the default HTML format
+      const langClass = lang ? ` class="language-${lang}"` : '';
+      const code = escaped ? text : text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      return `<pre><code${langClass}>${code}</code></pre>\n`;
+    };
+
+    marked.use({ renderer });
 
     // Convert markdown to HTML
     const htmlContent = await marked(markdownContent);
